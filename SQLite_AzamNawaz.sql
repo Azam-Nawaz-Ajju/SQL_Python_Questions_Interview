@@ -1420,6 +1420,7 @@ WHERE rank =1
 -- Q71: Previous and next rental date per customer using LAG and LEAD
 
 
+
 -- Q72: Time difference (days) between each rental for a customer using LAG
 -- Q73: Rental revenue trend per store, previous and next month using LEAD/LAG
 -- Q80: Customers who haven’t rented in last 3 months using LAG
