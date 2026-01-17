@@ -14,14 +14,8 @@
 
 import pandas as pd
 df = pd.read_csv(r'/home/nineleaps/Downloads/NineLeaps/Zomato_Dataset.csv')
-
-# Q1: List all restaurants in a specific locality.
-
 locality = input("Enter locality name: ").strip()
-
 result = df[df["Locality"].str.lower() == locality.lower()]
-
 print(f"\nRestaurants in {locality}:")
 print(result[["RestaurantID", "RestaurantName", "Address", "Cuisines", "Rating"]])
-
 print("\nTotal restaurants found:", result.shape[0])
