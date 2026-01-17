@@ -1197,8 +1197,24 @@ ORDER BY m1.store_id;
 
 
 -- Q9: Day of the week with highest number of rentals
-
-
+WITH week_count_rentals as 
+(
+    SELECT 
+        strftime('%w',rental_date) as day_of_week, 
+        count(rental_id) as rental_count
+        
+    FROM rental
+    GROUP by 1
+),
+rank_week_rental as 
+(
+    SELECT day_of_week, rental_count, 
+    ROW_NUMBER() OVER (ORDER BY rental_count DESC) as rank 
+    FROM week_count_rentals
+)
+SELECT day_of_week, rental_count,rank
+FROM rank_week_rental
+WHERE rank =1 
 -- Q71: Previous and next rental date per customer using LAG and LEAD
 
 SELECT 
@@ -1219,10 +1235,61 @@ FROM rental
 
 
 -- Q73: Rental revenue trend per store, previous and next month using LEAD/LAG
-
+WITH rental_reve_month as 
+(
+    SELECT 
+    
+        s.store_id,
+        strftime('%Y-%m',p.payment_date) as payment_month,
+        sum(p.amount) as rental_revenue
+    FROM payment p
+    JOIN staff st  
+        ON p.staff_id = st.staff_id
+    JOIN store s 
+        ON st.store_id = s.store_id
+    GROUP BY 1,2
+),
+lag_lead_revenue as 
+(
+    SELECT store_id, 
+    payment_month,
+    rental_revenue, 
+    (LAG(rental_revenue) OVER (PARTITION BY store_id ORDER BY payment_month)) as prev_revenue, 
+    (LEAD(rental_revenue) OVER(PARTITION BY store_id ORDER BY payment_month))as next_revenue
+    FROM rental_reve_month
+)
+SELECT store_id, payment_month, rental_revenue, prev_revenue, 
+prev_revenue - rental_revenue as prev_change, next_revenue, 
+next_revenue - rental_revenue as next_change 
+FROM lag_lead_revenue
 
 -- Q80: Customers who haven’t rented in last 3 months using LAG
+WITH custmer_rental as 
+(
+    SELECT 
+        customer_id, 
+        rental_date,
+        LAG(rental_date) OVER (PARTITION BY customer_id ORDER BY rental_date) as prev_rental_date
+    FROM rental
+), 
 
+last_rental as 
+(
+    SELECT 
+        customer_id, 
+        rental_date
+    FROM custmer_rental
+    WHERE prev_rental_date IS NULL 
+)
+SELECT 
+    c.customer_id, 
+    c.first_name, 
+    c.last_name, 
+    lr.rental_date as last_rented_on
+FROM last_rental lr
+JOIN customer c 
+    ON lr.customer_id = c.customer_id
+WHERE date(lr.rental_date) < date('now','-3 months')
 
 -- Q86: Previous and next rental dates per customer, with difference in days
 SELECT customer_id, 
@@ -1281,26 +1348,78 @@ WHERE days_since_prev > 30
 ORDER BY days_since_prev;
 
 -- Q88: Most recent and second-most recent rental per customer
+-- corelated query 
 
+SELECT
+    r1.customer_id,
+    r1.rental_id,
+    r1.rental_date
+FROM rental r1
+WHERE
+    (
+        SELECT COUNT(*)
+        FROM rental r2
+        WHERE r2.customer_id = r1.customer_id
+          AND r2.rental_date > r1.rental_date
+    ) < 2
+ORDER BY r1.customer_id, r1.rental_date DESC;
 
 -- Q95: Customers who rented in three consecutive months
+WITH customer_month_rents as 
+(
+    SELECT 
+        customer_id, 
+        strftime('%Y-%m',rental_date) as rental_month
+    FROM rental 
+    GROUP by customer_id, strftime('%Y-%m',rental_date) 
+), 
+customer_rank as 
+(
+    SELECT customer_id, 
+        rental_month, 
+        ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY rental_month) as rank 
+    FROM customer_month_rents
 
-
-
+)
+SELECT  customer_id, rental_month, rank
+FROM customer_rank 
+WHERE rank <=3 
+GROUP bY customer_id
 
 -- Q98: Movie with highest difference in rental count between consecutive months
 
 
 -- Q103: Rental revenue change per movie compared to previous quarter
 
-
+-- ====================
  -- GROUP - E 
-
+-- ====================
 
 
 -- 4. Date/Time Analysis (DATE functions, LAG, LEAD, Gaps)
 -- Q9: Day of the week with highest number of rentals
+WITH week_count_rentals as 
+(
+    SELECT 
+        strftime('%w',rental_date) as day_of_week, 
+        count(rental_id) as rental_count
+        
+    FROM rental
+    GROUP by 1
+),
+rank_week_rental as 
+(
+    SELECT day_of_week, rental_count, 
+    ROW_NUMBER() OVER (ORDER BY rental_count DESC) as rank 
+    FROM week_count_rentals
+)
+SELECT day_of_week, rental_count,rank
+FROM rank_week_rental
+WHERE rank =1 
+
 -- Q71: Previous and next rental date per customer using LAG and LEAD
+
+
 -- Q72: Time difference (days) between each rental for a customer using LAG
 -- Q73: Rental revenue trend per store, previous and next month using LEAD/LAG
 -- Q80: Customers who haven’t rented in last 3 months using LAG
