@@ -1388,7 +1388,40 @@ GROUP bY customer_id
 
 -- Q98: Movie with highest difference in rental count between consecutive months
 
-
+WITH movie_monthly_rents as 
+(
+    SELECT 
+        f.film_id, 
+        f.title, 
+        strftime('%Y-%m',r.rental_date) as rental_month,
+        count(r.rental_id) as rental_count
+    FROM rental r
+    JOIN inventory i 
+        ON r.inventory_id = i.inventory_id
+    JOIN film f 
+        ON i.film_id = f.film_id
+    GROUP BY f.film_id, f.title, strftime('%Y-%m',r.rental_date)
+),
+movie_monthly_diff as
+(
+    SELECT 
+        film_id, 
+        title, 
+        rental_month, 
+        rental_count,
+        LAG(rental_count) OVER (PARTITION BY film_id ORDER BY rental_month) as prev_month_rentals
+    FROM movie_monthly_rents
+)
+SELECT 
+    film_id, 
+    title, 
+    rental_month, 
+    rental_count,
+    prev_month_rentals,
+    ABS(rental_count - prev_month_rentals) as rental_diff
+FROM movie_monthly_diff
+ORDER BY rental_diff DESC
+LIMIT 1;
 -- Q103: Rental revenue change per movie compared to previous quarter
 
 -- ====================
@@ -1549,8 +1582,32 @@ FROM staff_revenue
 -- Q44: Customers renting more in last 6 months than previous 6 months
 -- Q45: Store with highest % unique customers renting only once
 -- Q47: Top 3 customers per store by total rental payments
-
-
+WITH cust_payments as 
+(
+SELECT 
+    s.store_id,
+    p.customer_id,
+    sum(p.amount) as total_payment
+FROM payment p
+JOIN staff st 
+    ON p.staff_id = st.staff_id
+JOIN store s 
+    ON st.store_id = s.store_id
+GROUP BY s.store_id, p.customer_id
+),
+cust_payments_ranked as 
+(
+    SELECT store_id,
+    customer_id,
+    total_payment,
+    DENSE_RANK() OVER (PARTITION BY store_id ORDER BY total_payment DESC) as rank
+    FROM cust_payments
+)
+SELECT store_id,
+customer_id,
+total_payment
+FROM cust_payments_ranked
+WHERE rank <=3
 
 -- Q72: Time difference (days) between each rental for a customer
 SELECT 
@@ -1561,3 +1618,4 @@ SELECT
 FROM rental 
 
 -- Q99: Films frequently rented together by same customer
+
