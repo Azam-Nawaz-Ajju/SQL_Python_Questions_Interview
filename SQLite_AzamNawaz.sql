@@ -1457,6 +1457,8 @@ WHERE rank =1
 -- Q72: Time difference (days) between each rental for a customer using LAG
 -- Q73: Rental revenue trend per store, previous and next month using LEAD/LAG
 -- Q80: Customers who haven’t rented in last 3 months using LAG
+
+
 -- Q86: Previous and next rental dates per customer, with difference in days
 -- Q87: Customers with gap >30 days between rentals
 -- Q88: Most recent and second-most recent rental per customer
@@ -1470,6 +1472,39 @@ WHERE rank =1
 -- Q8: Customers who rented in same month across multiple years
 -- Q41: Customers who rented from every category at least once
 -- Q42: Actors whose movies generate highest revenue (movies rented >50 times)
+
+WITH film_rentals AS (
+    SELECT
+        f.film_id,
+        f.rental_rate,
+        COUNT(*) AS rental_count
+    FROM rental r
+    JOIN inventory i ON r.inventory_id = i.inventory_id
+    JOIN film f ON i.film_id = f.film_id
+    GROUP BY f.film_id
+    HAVING COUNT(*) > 50
+),
+
+film_revenue AS (
+    SELECT
+        film_id,
+        rental_rate * rental_count AS revenue
+    FROM film_rentals
+)
+
+SELECT
+    a.actor_id,
+    a.first_name || ' ' || a.last_name AS actor_name,
+    SUM(fr.revenue) AS total_revenue
+FROM actor a
+JOIN film_actor fa ON a.actor_id = fa.actor_id
+JOIN film_revenue fr ON fa.film_id = fr.film_id
+GROUP BY a.actor_id, actor_name
+ORDER BY total_revenue DESC;
+
+
+
+
 -- Q46: Customers who rented movies from both stores, total rentals per customer
 WITH store_1 as 
 (
@@ -1517,6 +1552,20 @@ HAVING count(DISTINCT store_id) =2
 -- Q67: Customers renting movies from every category in a particular store
 -- Q106: Staff member with highest revenue contribution per store
 -- Q107: Rentals handled per staff per month, compare to previous month
+SELECT 
+    p.staff_id,
+    st.first_name || ' ' || st.last_name as staff_name,
+    sum(p.amount) as total_revenue,
+    strftime('%Y-%m', p.payment_date) as payment_year_month,
+    LAG(sum(p.amount)) OVER (PARTITION BY p.staff_id ORDER BY strftime('%Y-%m', p.payment_date)) as prev_month_revenue,
+    COALESCE((sum(p.amount) - LAG(sum(p.amount)) OVER (PARTITION BY p.staff_id ORDER BY strftime('%Y-%m', p.payment_date))),0) as revenue_change
+FROM payment p
+JOIN staff st 
+    ON p.staff_id = st.staff_id
+GROUP BY p.staff_id, strftime('%Y-%m', p.payment_date)
+
+
+
 -- Q108: Staff member with longest gap between rentals
 -- Q110: Staff with highest number of late rentals, compare to second-highest
 
@@ -1567,20 +1616,75 @@ FROM staff_revenue
 
 -- 9. Customer Behavior / Loyalty Analysis
 -- Q91: Classify customers by loyalty: Premium, Regular, Low-spending
+WITH cust_spend as 
+(
+    SELECT 
+        p.customer_id,
+        sum(p.amount) as total_spent
+    FROM payment p 
+    GROUP BY p.customer_id
+)
+SELECT 
+    customer_id, 
+    total_spent,
+    CASE 
+        WHEN total_spent >= 500 THEN 'Premium'
+        WHEN total_spent >= 200 THEN 'Regular'
+        ELSE 'Low-spending'
+    END as loyalty_segment
+FROM cust_spend
+
+
 -- Q92: Customers who spent more last 6 months than previous 6 months
+
+
 -- Q93: Customers renting same film multiple times, time between rentals
+
 -- Q94: First and most recent rental per customer
 -- Q97: Avg rental duration per movie, only if rented >20 times
+
+
 -- Q100: Previous and next rental instance per film per store
 -- Q101: Movies with high rentals but low inventory
 -- Q102: Most popular film category per month
+WITH film_category_monthly as 
+(
+SELECT 
+    fc.category_id,
+    strftime('%Y-%m', r.rental_date) as rental_month,
+    count(r.rental_id) as total_rents
+FROM rental r
+JOIN inventory i 
+    ON r.inventory_id = i.inventory_id
+JOIN film_category fc 
+    ON i.film_id = fc.film_id
+GROUP BY fc.category_id,strftime('%Y-%m', r.rental_date)
+),
+ranked_category as 
+(
+SELECT 
+    category_id,
+    rental_month,
+    total_rents,
+    RANK() OVER (PARTITION BY rental_month ORDER BY total_rents DESC) as rank 
+FROM film_category_monthly
+)
+SELECT 
+    category_id,
+    rental_month,
+    total_rents
+FROM ranked_category
+WHERE rank =1
 -- Q104: Films rented every month in a given year
+
+
 -- Q105: Store with highest % rentals from first-time customers
 
 -- 10. Advanced Analysis / Complex Metrics
 -- Q29: Movies most frequently rented on Fridays & Saturdays
 -- Q44: Customers renting more in last 6 months than previous 6 months
 -- Q45: Store with highest % unique customers renting only once
+
 -- Q47: Top 3 customers per store by total rental payments
 WITH cust_payments as 
 (
