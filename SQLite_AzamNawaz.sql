@@ -1455,7 +1455,6 @@ WHERE rank =1
 
 
 -- Q72: Time difference (days) between each rental for a customer using LAG
--- Q73: Rental revenue trend per store, previous and next month using LEAD/LAG
 -- Q80: Customers who haven’t rented in last 3 months using LAG
 
 
@@ -1601,7 +1600,57 @@ FROM staff_revenue
 -- Q38: YoY change in average rental duration per category
 -- Q39: Monthly rental comparison across years, biggest drop
 -- Q40: Customer spending difference compared to previous year
+WITH cust_spend AS (
+    SELECT 
+        customer_id,
+        strftime('%Y', payment_date) AS payment_year,
+        SUM(amount) AS spend_cust
+    FROM payment 
+    GROUP BY customer_id, strftime('%Y', payment_date)
+)
+
+SELECT
+    customer_id,
+    payment_year,
+    spend_cust,
+    LAG(spend_cust) OVER (
+        PARTITION BY customer_id 
+        ORDER BY payment_year
+    ) AS prev_year_spend,
+    spend_cust - LAG(spend_cust) OVER (
+        PARTITION BY customer_id 
+        ORDER BY payment_year
+    ) AS spend_difference
+FROM cust_spend;
+
 -- Q73: Revenue trend per store, previous & next month
+WITH rental_reve_month as 
+(
+    SELECT 
+    
+        s.store_id,
+        strftime('%Y-%m',p.payment_date) as payment_month,
+        sum(p.amount) as rental_revenue
+    FROM payment p
+    JOIN staff st  
+        ON p.staff_id = st.staff_id
+    JOIN store s 
+        ON st.store_id = s.store_id
+    GROUP BY 1,2
+),
+lag_lead_revenue as 
+(
+    SELECT store_id, 
+    payment_month,
+    rental_revenue, 
+    (LAG(rental_revenue) OVER (PARTITION BY store_id ORDER BY payment_month)) as prev_revenue, 
+    (LEAD(rental_revenue) OVER(PARTITION BY store_id ORDER BY payment_month))as next_revenue
+    FROM rental_reve_month
+)
+SELECT store_id, payment_month, rental_revenue, prev_revenue, 
+prev_revenue - rental_revenue as prev_change, next_revenue, 
+next_revenue - rental_revenue as next_change 
+FROM lag_lead_revenue
 
 
 
@@ -1676,14 +1725,121 @@ SELECT
 FROM ranked_category
 WHERE rank =1
 -- Q104: Films rented every month in a given year
-
+SELECT 
+    strftime('%Y-%m',r.rental_date) as rental_year_month,
+    count(f.film_id) as films_rented_count
+FROM rental r
+JOIN inventory i 
+    ON r.inventory_id = i.inventory_id
+JOIN film f
+    ON i.film_id = f.film_id
+GROUP BY strftime('%Y-%m',r.rental_date) 
 
 -- Q105: Store with highest % rentals from first-time customers
+WITH cust_rentals AS (
+    SELECT
+        s.store_id,
+        r.customer_id,
+        COUNT(*) AS rentals_per_customer
+    FROM rental r
+    JOIN staff st ON r.staff_id = st.staff_id
+    JOIN store s ON st.store_id = s.store_id
+    GROUP BY s.store_id, r.customer_id
+)
+
+SELECT
+    store_id,
+    SUM(CASE WHEN rentals_per_customer = 1 THEN 1 ELSE 0 END) * 100.0 /
+    COUNT(*) AS pct_unique_customers_renting_once
+FROM cust_rentals
+GROUP BY store_id
+ORDER BY pct_unique_customers_renting_once DESC
+LIMIT 1;
+
 
 -- 10. Advanced Analysis / Complex Metrics
 -- Q29: Movies most frequently rented on Fridays & Saturdays
+
+SELECT film_id,title,
+CASE WHEN rental_weekday = '5' THEN 'Friday' 
+    WHEN rental_weekday = '6' THEN 'Saturday' ELSE rental_weekday END as rental_weekday, rental_count
+FROM 
+(
+SELECT
+    f.film_id, 
+    f.title,
+    strftime('%w',r.rental_date) as rental_weekday, 
+    count(r.rental_id) as rental_count,
+    DENSE_RANK() OVER (PARTITION BY strftime('%w',r.rental_date) ORDER BY count(r.rental_id) DESC) as rank
+FROM rental r
+JOIN inventory i ON r.inventory_id = i.inventory_id
+JOIN film f ON i.film_id = f.film_id
+GROUP BY 1,2,3
+)
+WHERE rank =1
+AND rental_weekday in ('5','6')
+
+
 -- Q44: Customers renting more in last 6 months than previous 6 months
+WITH rentals_by_customer AS (
+    SELECT
+        r.customer_id,
+        r.rental_date,
+        COUNT(*) OVER (PARTITION BY r.customer_id) AS total_rentals
+    FROM rental r
+),
+
+last_6_months AS (
+    SELECT
+        customer_id,
+        COUNT(*) AS last6
+    FROM rental
+    WHERE rental_date >= DATE('now', '-6 months')
+    GROUP BY customer_id
+),
+
+prev_6_months AS (
+    SELECT
+        customer_id,
+        COUNT(*) AS prev6
+    FROM rental
+    WHERE rental_date >= DATE('now', '-12 months')
+          AND rental_date < DATE('now', '-6 months')
+    GROUP BY customer_id
+)
+
+SELECT
+    l.customer_id,
+    l.last6,
+    COALESCE(p.prev6, 0) AS prev6
+FROM last_6_months l
+LEFT JOIN prev_6_months p
+    ON l.customer_id = p.customer_id
+WHERE l.last6 > COALESCE(p.prev6, 0)
+ORDER BY (l.last6 - COALESCE(p.prev6, 0)) DESC;
+
+
 -- Q45: Store with highest % unique customers renting only once
+WITH cust_rentals AS (
+    SELECT
+        s.store_id,
+        r.customer_id,
+        COUNT(*) AS rentals_per_customer
+    FROM rental r
+    JOIN staff st ON r.staff_id = st.staff_id
+    JOIN store s ON st.store_id = s.store_id
+    GROUP BY s.store_id, r.customer_id
+)
+
+SELECTs
+    store_id,
+    SUM(CASE WHEN rentals_per_customer = 1 THEN 1 ELSE 0 END) * 100.0 /
+    COUNT(*) AS pct_unique_customers_renting_once
+FROM cust_rentals
+GROUP BY store_id
+ORDER BY pct_unique_customers_renting_once DESC
+LIMIT 1;
+
 
 -- Q47: Top 3 customers per store by total rental payments
 WITH cust_payments as 
