@@ -603,3 +603,165 @@ WHERE Id NOT IN (SELECT CustomerId FROM orders)
 
 -- ==================================================================================
 
+-- Question 32
+-- Write a SQL query to delete all duplicate email entries in a table named Person, keeping only unique emails based on its smallest Id.
+
+-- +----+------------------+
+-- | Id | Email            |
+-- +----+------------------+
+-- | 1  | john@example.com |
+-- | 2  | bob@example.com  |
+-- | 3  | john@example.com |
+-- +----+------------------+
+-- Id is the primary key column for this table.
+-- For example, after running your query, the above Person table should have the following rows:
+
+-- +----+------------------+
+-- | Id | Email            |
+-- +----+------------------+
+-- | 1  | john@example.com |
+-- | 2  | bob@example.com  |
+-- +----+------------------+
+
+
+WITH cte AS (
+    SELECT 
+        Id,
+        ROW_NUMBER() OVER (PARTITION BY Email ORDER BY Id) AS rn
+    FROM person
+)
+DELETE FROM person
+WHERE Id IN (SELECT Id FROM cte WHERE rn > 1);
+
+-- ================================================================================================
+
+-- Question 11
+-- Write a SQL query to find all duplicate emails in a table named Person.
+
+-- +----+---------+
+-- | Id | Email   |
+-- +----+---------+
+-- | 1  | a@b.com |
+-- | 2  | c@d.com |
+-- | 3  | a@b.com |
+-- +----+---------+
+-- For example, your query should return the following for the above table:
+
+-- +---------+
+-- | Email   |
+-- +---------+
+-- | a@b.com |
+-- +---------+
+
+SELECT DISTINCT Email 
+FROM 
+    (SELECT Email
+    FROM Person 
+    GROUP BY Email 
+    HAVING COUNT(*) > 1
+    ) 
+
+-- ================================================================
+
+-- Question 4
+-- Select all employee's name and bonus whose bonus is < 1000.
+
+-- Table:Employee
+
+-- +-------+--------+-----------+--------+
+-- | empId |  name  | supervisor| salary |
+-- +-------+--------+-----------+--------+
+-- |   1   | John   |  3        | 1000   |
+-- |   2   | Dan    |  3        | 2000   |
+-- |   3   | Brad   |  null     | 4000   |
+-- |   4   | Thomas |  3        | 4000   |
+-- +-------+--------+-----------+--------+
+-- empId is the primary key column for this table.
+-- Table: Bonus
+
+-- +-------+-------+
+-- | empId | bonus |
+-- +-------+-------+
+-- | 2     | 500   |
+-- | 4     | 2000  |
+-- +-------+-------+
+-- empId is the primary key column for this table.
+-- Example ouput:
+
+-- +-------+-------+
+-- | name  | bonus |
+-- +-------+-------+
+-- | John  | null  |
+-- | Dan   | 500   |
+-- | Brad  | null  |
+-- +-------+-------+
+
+
+SELECT e.name, b.bonus
+FROM Employee e
+LEFT JOIN Bonus b
+    ON e.empId = b.empId
+WHERE b.bonus < 1000 OR b.bonus IS NULL;
+
+
+-- ==========================================================================================
+
+-- Question 15
+-- The Employee table holds all employees including their managers. 
+-- Every employee has an Id, and there is also a column for the manager Id.
+
+-- +----+-------+--------+-----------+
+-- | Id | Name  | Salary | ManagerId |
+-- +----+-------+--------+-----------+
+-- | 1  | Joe   | 70000  | 3         |
+-- | 2  | Henry | 80000  | 4         |
+-- | 3  | Sam   | 60000  | NULL      |
+-- | 4  | Max   | 90000  | NULL      |
+-- +----+-------+--------+-----------+
+-- Given the Employee table, write a SQL query that finds out employees who earn more than their managers. 
+-- For the above table, Joe is the only employee who earns more than his manager.
+
+-- +----------+
+-- | Employee |
+-- +----------+
+-- | Joe      |
+-- +----------+
+
+
+SELECT e.Name AS Employee
+FROM Employee e
+JOIN Employee m
+    ON e.ManagerId = m.Id
+WHERE e.Salary > m.Salary;
+
+
+-- ==============================================================================
+
+-- Question 10
+-- Given a table customer holding customers information and the referee.
+
+-- +------+------+-----------+
+-- | id   | name | referee_id|
+-- +------+------+-----------+
+-- |    1 | Will |      NULL |
+-- |    2 | Jane |      NULL |
+-- |    3 | Alex |         2 |
+-- |    4 | Bill |      NULL |
+-- |    5 | Zack |         1 |
+-- |    6 | Mark |         2 |
+-- +------+------+-----------+
+-- Write a query to return the list of customers NOT referred by the person with id '2'.
+
+-- For the sample data above, the result is:
+
+-- +------+
+-- | name |
+-- +------+
+-- | Will |
+-- | Jane |
+-- | Bill |
+-- | Zack |
+-- +------+
+
+
+
