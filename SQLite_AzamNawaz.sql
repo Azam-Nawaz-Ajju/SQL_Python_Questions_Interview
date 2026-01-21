@@ -2829,3 +2829,22 @@ SELECT
 FROM drivers_20_trips 
 GROUP BY driver_id
 HAVING COUNT(DISTINCT trip_year_month) = 12 
+
+
+-- Query to find the drivers who never missed any ride from the past one month.
+
+WITH all_drivers AS (
+    SELECT DISTINCT driver_id
+    FROM trips
+),
+drivers_with_trips AS (
+    SELECT DISTINCT driver_id
+    FROM trips
+    WHERE trip_date >= DATE('now', '-1 month')
+)
+SELECT
+    ad.driver_id
+FROM all_drivers ad
+LEFT JOIN drivers_with_trips dwt
+    ON ad.driver_id = dwt.driver_id
+WHERE dwt.driver_id IS NOT NULL;    
