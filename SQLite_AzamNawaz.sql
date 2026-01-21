@@ -2848,3 +2848,29 @@ FROM all_drivers ad
 LEFT JOIN drivers_with_trips dwt
     ON ad.driver_id = dwt.driver_id
 WHERE dwt.driver_id IS NOT NULL;    
+
+-- Other approach in dynamic way 
+WITH date_window AS (
+    SELECT
+        date('now', '-30 days') AS start_date,
+        date('now') AS end_date,
+        CAST(
+            julianday(date('now')) - julianday(date('now', '-30 days'))
+        AS INTEGER
+        ) + 1 AS total_days
+),
+driver_days AS (
+    SELECT
+        driver_id,
+        DATE(trip_date) AS trip_day
+    FROM trips
+    WHERE trip_date BETWEEN (SELECT start_date FROM date_window)
+                        AND (SELECT end_date FROM date_window)
+      AND status = 'completed'
+    GROUP BY driver_id, DATE(trip_date)
+)
+SELECT
+    driver_id
+FROM driver_days, date_window
+GROUP BY driver_id
+HAVING COUNT(DISTINCT trip_day) = date_window.total_days;
