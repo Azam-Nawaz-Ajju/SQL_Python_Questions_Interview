@@ -2725,8 +2725,11 @@ LIMIT 1;
 
 
 -- Q47: Top 3 customers per store by total rental payments
+EXPLAIN QUERY PLAN
 WITH cust_payments as 
 (
+
+
 SELECT 
     s.store_id,
     p.customer_id,
@@ -2874,3 +2877,7 @@ SELECT
 FROM driver_days, date_window
 GROUP BY driver_id
 HAVING COUNT(DISTINCT trip_day) = date_window.total_days;
+
+
+-- Learning Source : Strata Scratch SQL and for Python
+
