@@ -11,16 +11,137 @@ All queries can be executed using **SQLite Online**:
 
 The problems are based on a **DVD Rental–style database**, involving:
 
-# Tables Names: 
+# Tables Schema: 
 
-* Customers
-* Rentals
-* Payments
-* Films
-* Categories
-* Actors
-* Stores
-* Staff
+-- ===============================
+-- SAKILA SCHEMA (PostgreSQL)
+-- ===============================
+
+CREATE SCHEMA IF NOT EXISTS sakila;
+SET search_path TO sakila;
+
+-- COUNTRY
+CREATE TABLE country (
+    country_id SMALLINT PRIMARY KEY,
+    country VARCHAR(50) NOT NULL,
+    last_update TIMESTAMP
+);
+
+-- CITY
+CREATE TABLE city (
+    city_id INT PRIMARY KEY,
+    city VARCHAR(50) NOT NULL,
+    country_id SMALLINT REFERENCES country(country_id),
+    last_update TIMESTAMP
+);
+
+-- ADDRESS
+CREATE TABLE address (
+    address_id INT PRIMARY KEY,
+    address VARCHAR(50),
+    address2 VARCHAR(50),
+    district VARCHAR(20),
+    city_id INT REFERENCES city(city_id),
+    postal_code VARCHAR(10),
+    phone VARCHAR(20),
+    last_update TIMESTAMP
+);
+
+-- CATEGORY
+CREATE TABLE category (
+    category_id SMALLINT PRIMARY KEY,
+    name VARCHAR(25),
+    last_update TIMESTAMP
+);
+
+-- ACTOR
+CREATE TABLE actor (
+    actor_id INT PRIMARY KEY,
+    first_name VARCHAR(45),
+    last_name VARCHAR(45),
+    last_update TIMESTAMP
+);
+
+-- LANGUAGE
+CREATE TABLE language (
+    language_id SMALLINT PRIMARY KEY,
+    name VARCHAR(20),
+    last_update TIMESTAMP
+);
+
+-- FILM
+CREATE TABLE film (
+    film_id INT PRIMARY KEY,
+    title VARCHAR(255),
+    description TEXT,
+    release_year INT,
+    language_id SMALLINT REFERENCES language(language_id),
+    rental_duration INT,
+    rental_rate NUMERIC(4,2),
+    length INT,
+    replacement_cost NUMERIC(5,2),
+    rating VARCHAR(10),
+    last_update TIMESTAMP
+);
+
+-- FILM_ACTOR
+CREATE TABLE film_actor (
+    actor_id INT REFERENCES actor(actor_id),
+    film_id INT REFERENCES film(film_id),
+    last_update TIMESTAMP,
+    PRIMARY KEY (actor_id, film_id)
+);
+
+-- FILM_CATEGORY
+CREATE TABLE film_category (
+    film_id INT REFERENCES film(film_id),
+    category_id SMALLINT REFERENCES category(category_id),
+    last_update TIMESTAMP,
+    PRIMARY KEY (film_id, category_id)
+);
+
+-- CUSTOMER
+CREATE TABLE customer (
+    customer_id INT PRIMARY KEY,
+    store_id INT,
+    first_name VARCHAR(45),
+    last_name VARCHAR(45),
+    email VARCHAR(50),
+    address_id INT REFERENCES address(address_id),
+    active BOOLEAN,
+    create_date DATE,
+    last_update TIMESTAMP
+);
+
+-- INVENTORY
+CREATE TABLE inventory (
+    inventory_id INT PRIMARY KEY,
+    film_id INT REFERENCES film(film_id),
+    store_id INT,
+    last_update TIMESTAMP
+);
+
+-- RENTAL
+CREATE TABLE rental (
+    rental_id INT PRIMARY KEY,
+    rental_date TIMESTAMP,
+    inventory_id INT REFERENCES inventory(inventory_id),
+    customer_id INT REFERENCES customer(customer_id),
+    return_date TIMESTAMP,
+    staff_id INT,
+    last_update TIMESTAMP
+);
+
+-- PAYMENT
+CREATE TABLE payment (
+    payment_id INT PRIMARY KEY,
+    customer_id INT REFERENCES customer(customer_id),
+    staff_id INT,
+    rental_id INT REFERENCES rental(rental_id),
+    amount NUMERIC(5,2),
+    payment_date TIMESTAMP
+);
+
 
 ---
 
