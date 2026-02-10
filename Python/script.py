@@ -1,3 +1,9 @@
+
+# every day we get a CSV file with the previous day’s data in the format country_YESTERDAY_DATE. 
+# The CSV file contains country names and product IDs. 
+# Assume the country column initially has only 4 countries. 
+# Calculate total trips for per product_id from each file?
+
 import pandas as pd
 import glob
 import os
@@ -14,7 +20,7 @@ for file in glob.glob(input_path):
     all_data.append(df)
 
 combined_df = pd.concat(all_data,ignore_index= True)
-
+print(combined_df.size())
 result = (
 
     combined_df
