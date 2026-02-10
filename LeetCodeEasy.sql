@@ -765,3 +765,95 @@ WHERE e.Salary > m.Salary;
 
 
 
+-- Consider a customer care center which receives calls from customers.
+-- Starttime and endtime denote the conversation start time and end time. 
+-- Missed calls are the calls where no conversation happened. For any missed call, the customer care returns the call. 
+-- Find the number of return calls that were done by cust care (1800) within 30 minutes of the missed call. 
+
+-- The 2nd and 6th rows indicate such return calls.
+From_number | To_number | starttime             |endtime                | 
+100         |1800       |2019-08-11 18:40:56.223|2019-08-11 18:40:56.223| 
+1800        |100        |2019-08-11 18:55:56.223|2019-08-11 18:57:56.223| 
+
+200         |1800       |2019-08-11 19:30:56.223|2019-08-11 19:30:56.223| 
+1800        |200        |2019-08-11 20:05:56.223|2019-08-11 20:10:56.223| 
+300         |1800       |2019-08-11 21:00:56.223|2019-08-11 21:00:56.223| 
+1800        |300        |2019-08-11 21:20:56.223|2019-08-11 21:25:56.223| 
+400         |1800       |2019-08-12 07:00:56.223|2019-08-12 07:00:56.223| 
+500         |1800       |2019-08-12 08:00:56.223|2019-08-12 08:05:56.223| 
+
+-- workedout visual
+
+From_number | To_number | starttime             |endtime                | custtttt |prev_time               |
+100         |1800       |2019-08-11 18:40:56.223|2019-08-11 18:40:56.223| 100      |                        |
+1800        |100        |2019-08-11 18:55:56.223|2019-08-11 18:57:56.223| 100      |2019-08-11 18:40:56.223 +30
+
+200         |1800       |2019-08-11 19:30:56.223|2019-08-11 19:30:56.223| 200      |
+1800        |200        |2019-08-11 20:05:56.223|2019-08-11 20:10:56.223| 200      |2019-08-11 19:30:56.223 +30 
+
+300         |1800       |2019-08-11 21:00:56.223|2019-08-11 21:00:56.223| 300      |
+1800        |300        |2019-08-11 21:20:56.223|2019-08-11 21:25:56.223| 300      |2019-08-11 21:00:56.223 +30
+
+400         |1800       |2019-08-12 07:00:56.223|2019-08-12 07:00:56.223| 400      |
+500         |1800       |2019-08-12 08:00:56.223|2019-08-12 08:05:56.223| 500      |
+
+-- optimized version:
+
+WITH cte AS (
+SELECT *,
+       LAG(starttime) OVER (PARTITION BY cust ORDER BY starttime) AS prev_time,
+       LAG(starttime = endtime AND to_number = 1800)
+           OVER (PARTITION BY cust ORDER BY starttime) AS prev_missed
+FROM (
+    SELECT *,
+           CASE WHEN from_number = 1800 THEN to_number ELSE from_number END cust
+    FROM calls
+) t
+)
+
+SELECT COUNT(*)
+FROM cte
+WHERE from_number = 1800
+  AND prev_missed
+  AND starttime <= prev_time + INTERVAL '30 minutes';
+
+
+
+
+-- #normal version
+WITH missed_calls AS (
+    SELECT
+        from_number,
+        to_number,
+        starttime AS missed_time
+    FROM calls
+    WHERE to_number = 1800
+      AND starttime = endtime          -- missed call
+),
+
+return_calls AS (
+    SELECT
+        from_number,
+        to_number,
+        starttime AS return_time
+    FROM calls
+    WHERE from_number = 1800           -- callback from call center
+)
+
+SELECT COUNT(*) AS return_call_count
+FROM missed_calls m
+JOIN return_calls r
+  ON m.from_number = r.to_number       -- same customer
+ AND r.return_time > m.missed_time
+ AND r.return_time <= m.missed_time + INTERVAL '30 minutes';
+
+
+
+
+
+
+
+
+
+
+
