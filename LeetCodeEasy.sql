@@ -817,9 +817,6 @@ WHERE from_number = 1800
   AND prev_missed
   AND starttime <= prev_time + INTERVAL '30 minutes';
 
-
-
-
 -- #normal version
 WITH missed_calls AS (
     SELECT
