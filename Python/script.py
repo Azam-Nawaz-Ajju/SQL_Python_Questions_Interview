@@ -20,7 +20,7 @@ for file in glob.glob(input_path):
     all_data.append(df)
 
 combined_df = pd.concat(all_data,ignore_index= True)
-print(combined_df.size())
+
 result = (
 
     combined_df
